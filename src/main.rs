@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate rustacuda;
+use rustacuda::prelude::*;
+use rustacuda::error::CudaResult;
 
 use std::error::Error;
 use std::path::Path;
 use std::fs::File;
 use std::io::prelude::*;
-use std::thread;
-use std::sync::{Mutex, Arc};
 use std::time::{Instant};
 
-use rustacuda::error::CudaResult;
-
 mod lib;
-use lib::{Vec3, Ray, Operations, OperationsData, Camera};
+use lib::{Vec3, Operations, OperationsData, Camera};
 
 fn idx_to_uv(idx: u32, width: u32, height: u32) -> (f32, f32) {
     let x = idx % width;
@@ -28,104 +26,115 @@ fn draw_image(filename: &str) -> Result<(), Box<dyn Error>> {
 
     // image setting
     const ASPECT_RATIO: f32 = 16.0 / 9.0;
-    const WIDTH: u32 = 400;
+    const WIDTH: u32 = 1920;
     const HEIGHT: u32 = (WIDTH as f32 / ASPECT_RATIO) as u32;
     let cam = Camera::new(Vec3::zero(), ASPECT_RATIO, 2.0, 1.0);
 
-    // processing setting
-    let thread_count = 1;       // width * height % thread_count shoud be 0
+    // ready cuda operations
+    let operations = Operations::new(&OperationsData::new());
+
+    // ready streams
+    let stream_cnt = 8_usize;   // (WIDTH * HEIGHT) % stream_cnt shoud be 0
+    let chunck_size = (WIDTH*HEIGHT) as usize / stream_cnt;
+    let mut streams = Vec::new();
+    for _ in 0..stream_cnt {
+        let stream = operations.create_stream().unwrap();
+        streams.push(stream);
+    }
 
     // render
     println!("start rendering!");
-    output += &format!("P3\n{} {}\n255\n", WIDTH as u32, HEIGHT as u32)[..];
-    let chunck_size = WIDTH*HEIGHT / thread_count;
-
-    let colors = Arc::new(Mutex::new(vec!((0_u32, 0_u32, 0_u32); (WIDTH*HEIGHT) as usize)));
-    let cam = Arc::new(Mutex::new(cam));
-    let operations_data = OperationsData::new();
-    let mut handles = Vec::new();
-    
     let timer = Instant::now();
-    for i in 0..thread_count {
-        let colors = Arc::clone(&colors);
-        let cam = Arc::clone(&cam);
-        let operations_data = operations_data.clone();
-        let handle = thread::spawn(move || {
-            let operations = Operations::new(&operations_data);
-            match draw_partial(&operations, WIDTH, HEIGHT, &cam, (chunck_size*i, chunck_size*(i+1)), &colors) {
-                Err(e) => {
-                    println!("error occured while drawing: {:?}", e);
-                },
-                Ok(_) => {}
-            };
-        }); 
-        handles.push(handle);
+
+    // ready dirs, origins
+    let mut dirs = Vec::new();
+    let mut origs = Vec::new();
+    for i in 0..WIDTH*HEIGHT {
+        let uv = idx_to_uv(i, WIDTH, HEIGHT);
+        let ray = cam.get_ray(uv);
+        dirs.push(ray.dir.clone());
+        origs.push(ray.orig.clone());
     }
-    for handle in handles {
-        handle.join().expect("some threads cannot be joined");
+
+    // push operations
+    const GRID_SIZE: u32 = 16;
+    const BLOCK_SIZE: u32 = 256;
+    let mut cols_device = Vec::new();
+    
+    for i in 0..stream_cnt {
+        let rng = (chunck_size*i, chunck_size*(i + 1));
+        let stream = &streams[i as usize];
+        let cols = push_operations(&operations, stream, &dirs, &origs, rng, GRID_SIZE, BLOCK_SIZE)?;
+        cols_device.push(cols);
+    }
+    for i in 0..stream_cnt {
+        let stream = &streams[i];
+        stream.synchronize()?;
     }
     let duration = timer.elapsed();
     println!("calculation complete!, {:?}", duration);
-    let colors = colors.lock().unwrap();
-    for i in 0..WIDTH*HEIGHT {
-        let idx = i as usize;
-        output += &format!("{} {} {}\n", colors[idx].0, colors[idx].1, colors[idx].2);
-    }
-    println!("write complete!");
 
+    // write to file
+    output += &format!("P3\n{} {}\n255\n", WIDTH as u32, HEIGHT as u32)[..];
+    for cols in cols_device {
+        let mut cols_host = vec![Vec3::zero(); chunck_size];
+        cols.copy_to(&mut cols_host[..])?;
+        for col in cols_host {
+            let r = (255.999 * col.x) as u32;
+            let g = (255.999 * col.y) as u32;
+            let b = (255.999 * col.z) as u32;
+            output += &format!("{} {} {}\n", r, g, b);
+        }
+    }
     let mut file = File::create(&path)?;
     file.write_all(output.as_bytes())?;
+    println!("write complete!");
     Ok(())
 }
 
-fn draw_partial(operations: &Operations, width: u32, height: u32, camera: &Arc<Mutex<Camera>>, range: (u32, u32), colors: &Arc<Mutex<Vec<(u32, u32, u32)>>>) -> CudaResult<()> {
-    let mut rays = Vec::new();
-    let camera = camera.lock().unwrap();
-    for i in range.0..range.1 {
-        let uv = idx_to_uv(i, width, height);
-        let ray = camera.get_ray(uv);
-        rays.push(ray);
-    }
-    calculate_colors(operations, &rays, range, colors)?;
-    Ok(())
-}
+fn push_operations(
+    operations: &Operations, 
+    stream: &Stream, 
+    dirs: &Vec<Vec3>, 
+    _origs: &Vec<Vec3>, 
+    range: (usize, usize), 
+    grid_size: u32, 
+    block_size: u32
+) -> CudaResult<DeviceBuffer<Vec3>> {
+    let chunck_size = range.1 - range.0;
 
-fn calculate_colors(operations: &Operations, rays: &[Ray], range: (u32, u32), colors: &Arc<Mutex<Vec<(u32, u32, u32)>>>) -> CudaResult<()> {
-    let stream = operations.create_stream().unwrap();
+    // constants
+    let ones = vec![1.0_f32; chunck_size];
+    let point_fives = vec![0.5_f32; chunck_size];
 
-    let mut origins = Vec::new();
-    let mut dirs = Vec::new();
-    for i in 0..rays.len() {
-        origins.push(rays[i].orig.clone());
-        dirs.push(rays[i].dir.clone());
-    }
+    let colors1 = vec![Vec3::new(0.5, 0.7, 1.0); chunck_size];
+    let colors2 = vec![Vec3::new(1.0, 1.0, 1.0); chunck_size];
 
-    const GRID_SIZE: u32 = 32;
-    const BLOCK_SIZE: u32 = 256;
+    // move to device
+    let mut vec = Operations::slice_to_device(&dirs[range.0..range.1], stream)?;
 
-    let units = operations.vec3_normalize(&dirs[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let t = operations.vec3_get_y(&units[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let t = operations.add(&t[..], &vec![1.0_f32; t.len()][..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let t = operations.mul(&t[..], &vec![0.5_f32; t.len()][..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let cols = operations.vec3_mul_scalar(&vec![Vec3::new(0.5, 0.7, 1.0); t.len()], &t[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let t = operations.sub(&vec![1.0_f32; t.len()][..], &t[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let cols2 = operations.vec3_mul_scalar(&vec![Vec3::new(1.0, 1.0, 1.0); t.len()][..], &t[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
-    let cols = operations.vec3_add(&cols[..], &cols2[..], &stream, GRID_SIZE, BLOCK_SIZE)?;
+    // push operations
+    let mut vec = operations.vec3_normalize(&mut vec, chunck_size, stream, grid_size, block_size)?;
+    let mut t = operations.vec3_get_y(&mut vec, chunck_size, &stream, grid_size, block_size)?;
 
-    let mut colors_arr = colors.lock().unwrap();
-    for i in 0..origins.len() {
-        let col = &cols[i];
-        // let unit = dirs[i].unit();
-        // let t = 0.5 * (unit.y + 1.0);
-        // let col = Vec3::new(0.5, 0.7, 1.0).mul(t).add(Vec3::new(1.0, 1.0, 1.0).mul(1.0 - t));
+    let mut val = Operations::slice_to_device(&ones[..], &stream)?;
+    let mut t = operations.add(&mut t, &mut val, chunck_size, &stream, grid_size, block_size)?;
 
-        let r = (255.999 * col.x) as u32;
-        let g = (255.999 * col.y) as u32;
-        let b = (255.999 * col.z) as u32;
-        colors_arr[i + range.0 as usize] = (r, g, b);
-    }
 
-    Ok(())
+    let mut val = Operations::slice_to_device(&point_fives[..], &stream)?;
+    let mut t = operations.mul(&mut t, &mut val, chunck_size, &stream, grid_size, block_size)?;
+
+    let mut vec = Operations::slice_to_device(&colors1[..], &stream)?;
+    let mut cols = operations.vec3_mul_scalar(&mut vec, &mut t, chunck_size, &stream, grid_size, block_size)?;
+
+    let mut val = Operations::slice_to_device(&ones[..], &stream)?;
+    let mut t = operations.sub(&mut val, &mut t, chunck_size, &stream, grid_size, block_size)?;
+
+    let mut vec = Operations::slice_to_device(&colors2[..], &stream)?;
+    let mut cols2 = operations.vec3_mul_scalar(&mut vec, &mut t, chunck_size, &stream, grid_size, block_size)?;
+    let cols = operations.vec3_add(&mut cols, &mut cols2, chunck_size, &stream, grid_size, block_size)?;
+
+    Ok(cols)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
