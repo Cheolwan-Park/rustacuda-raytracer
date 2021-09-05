@@ -62,19 +62,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.add<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -84,19 +82,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.sub<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -106,19 +102,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.mul<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -128,19 +122,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.divide<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -150,19 +142,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.float_max<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -172,19 +162,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.float_min<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -193,18 +181,16 @@ impl Operations {
     pub fn inv(
         &self,
         x: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.inv<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -213,18 +199,16 @@ impl Operations {
     pub fn sqrt(
         &self,
         x: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.float_sqrt<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -234,19 +218,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.float_pow<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -255,18 +237,16 @@ impl Operations {
     pub fn is_positive(
         &self,
         x: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.is_positive<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -275,18 +255,16 @@ impl Operations {
     pub fn is_negative(
         &self,
         x: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.is_negative<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -296,30 +274,27 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
-        let mut out = self.sub(x, y, count, stream)?;
-        self.is_positive(&mut out, count, stream)
+        let mut out = self.sub(x, y, stream)?;
+        self.is_positive(&mut out, stream)
     }
 
     pub fn and(
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.bool_and<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -329,19 +304,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<f32>,
         y: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.bool_or<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -350,18 +323,16 @@ impl Operations {
     pub fn not(
         &self,
         x: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.bool_not<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -372,12 +343,10 @@ impl Operations {
         flag: &mut DeviceBuffer<f32>,
         when_true: &mut DeviceBuffer<f32>,
         when_false: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(flag.len())?;
             
             let module = &self.module;
             launch!(module.float_select<<<self.grid_size, self.block_size, 0, stream>>>(
@@ -385,7 +354,7 @@ impl Operations {
                 when_true.as_device_ptr(),
                 when_false.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                flag.len()
             ))?;
             Ok(out)
         }
@@ -395,19 +364,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<Vec3>, 
         y: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.vec3_add<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -417,19 +384,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<Vec3>, 
         y: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.vec3_sub<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -439,19 +404,17 @@ impl Operations {
         &self,
         x: &mut DeviceBuffer<Vec3>, 
         y: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(x.len())?;
             
             let module = &self.module;
             launch!(module.vec3_dot<<<self.grid_size, self.block_size, 0, stream>>>(
                 x.as_device_ptr(),
                 y.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                x.len()
             ))?;
             Ok(out)
         }
@@ -461,19 +424,17 @@ impl Operations {
         &self,
         v: &mut DeviceBuffer<Vec3>,
         scalar: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_mul_scalar<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 scalar.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                v.len()
             ))?;
             Ok(out)
         }
@@ -483,19 +444,17 @@ impl Operations {
         &self,
         v: &mut DeviceBuffer<Vec3>,
         scalar: &mut DeviceBuffer<f32>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_div_scalar<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 scalar.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                v.len()
             ))?;
             Ok(out)
         }
@@ -504,18 +463,16 @@ impl Operations {
     pub fn vec3_len(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.len<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -524,18 +481,16 @@ impl Operations {
     pub fn vec3_len_squared(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_len_squared<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -544,18 +499,16 @@ impl Operations {
     pub fn vec3_normalize(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_normalize<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -564,18 +517,16 @@ impl Operations {
     pub fn vec3_inv(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_inv<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -584,18 +535,16 @@ impl Operations {
     pub fn vec3_get_x(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_get_x<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -604,18 +553,16 @@ impl Operations {
     pub fn vec3_get_y(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_get_y<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -624,18 +571,16 @@ impl Operations {
     pub fn vec3_get_z(
         &self,
         v: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<f32>> {
         unsafe {
-            let out = vec![0.0_f32; count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(v.len())?;
             
             let module = &self.module;
             launch!(module.vec3_get_z<<<self.grid_size, self.block_size, 0, stream>>>(
                 v.as_device_ptr(),
                 out.as_device_ptr(),
-                out.len()
+                v.len()
             ))?;
             Ok(out)
         }
@@ -646,12 +591,10 @@ impl Operations {
         flag: &mut DeviceBuffer<f32>,
         when_true: &mut DeviceBuffer<Vec3>,
         when_false: &mut DeviceBuffer<Vec3>,
-        count: usize,
         stream: &Stream,
     ) -> CudaResult<DeviceBuffer<Vec3>> {
         unsafe {
-            let out = vec![Vec3::zero(); count];
-            let mut out = DeviceBuffer::from_slice_async(&out[..], stream)?;
+            let mut out = DeviceBuffer::zeroed(flag.len())?;
             
             let module = &self.module;
             launch!(module.vec3_select<<<self.grid_size, self.block_size, 0, stream>>>(
@@ -659,7 +602,7 @@ impl Operations {
                 when_true.as_device_ptr(),
                 when_false.as_device_ptr(),
                 out.as_device_ptr(),
-                count
+                flag.len()
             ))?;
             Ok(out)
         }

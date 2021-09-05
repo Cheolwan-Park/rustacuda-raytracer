@@ -80,7 +80,7 @@ extern "C" __global__ void is_positive(const float *x, float *out, int count) {
     int start_idx = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for(int i=start_idx; i<count; i += stride) {
-        out[i] = max(x[i], 0.0f) / x[i];
+        out[i] = x[i] > 0.0f ? 1.0f : 0.0f;
     }
 }
 
@@ -88,7 +88,7 @@ extern "C" __global__ void is_negative(const float *x, float *out, int count) {
     int start_idx = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for(int i=start_idx; i<count; i += stride) {
-        out[i] = 1.0f - (max(x[i], 0.0f) / x[i]);
+        out[i] = x[i] < 0.0f ? 1.0f : 0.0f;
     }
 }
 

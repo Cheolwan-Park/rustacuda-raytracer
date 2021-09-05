@@ -9,10 +9,13 @@ extern crate rustacuda;
 use rustacuda::prelude::*;
 use rustacuda::error::CudaResult;
 
+use std::rc::Rc;
+
 use rand::prelude::*;
 
 mod lib;
 use lib::{Vec3, Operations, Camera};
+use lib::cuda_types::{CudaVec3, CudaFloat, CudaBool};
 
 fn idx_to_uv(idx: u32, width: u32, height: u32)   -> (f32, f32) {
     let x = idx % width;
@@ -40,7 +43,7 @@ fn draw_image(filename: &str) -> Result<(), Box<dyn Error>> {
     // ready cuda operations
     const GRID_SIZE: u32 = 128;
     const BLOCK_SIZE: u32 = 512;
-    let operations = Operations::new(GRID_SIZE, BLOCK_SIZE);
+    let operations = Rc::new(Operations::new(GRID_SIZE, BLOCK_SIZE));
 
     // ready streams
     let stream_cnt = 16_usize;   // (WIDTH * HEIGHT) % stream_cnt shoud be 0
@@ -48,7 +51,7 @@ fn draw_image(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut streams = Vec::new();
     for _ in 0..stream_cnt {
         let stream = operations.create_stream().unwrap();
-        streams.push(stream);
+        streams.push(Rc::new(stream));
     }
 
     // render
@@ -87,8 +90,7 @@ fn draw_image(filename: &str) -> Result<(), Box<dyn Error>> {
     output += &format!("P3\n{} {}\n255\n", WIDTH as u32, HEIGHT as u32)[..];
     let pixel_per_chunk = chunck_size / RAY_PER_PIXEL;
     for cols in cols_device {
-        let mut cols_host = vec![Vec3::zero(); chunck_size];
-        cols.copy_to(&mut cols_host[..])?;
+        let cols_host = cols.to_vec()?;
         for i in 0..pixel_per_chunk {
             let mut col = Vec3::zero();
             for partial_col in &cols_host[i*RAY_PER_PIXEL..(i+1)*RAY_PER_PIXEL] {
@@ -108,63 +110,56 @@ fn draw_image(filename: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn push_operations(
-    operations: &Operations, 
-    stream: &Stream, 
+    operations: &Rc<Operations>, 
+    stream: &Rc<Stream>, 
     dirs: &Vec<Vec3>, 
     origs: &Vec<Vec3>, 
     range: (usize, usize),
-) -> CudaResult<DeviceBuffer<Vec3>> {
+) -> CudaResult<CudaVec3> {
     let chunk_size = range.1 - range.0;
 
     // constants
-    let point_fives = vec![0.5_f32; chunk_size];
-    let one_vecs = vec![Vec3::new(1.0, 1.0, 1.0); chunk_size];
+    let mut point_fives = CudaFloat::from_vec(vec![0.5_f32; chunk_size], stream, operations)?;
+    let mut one_vecs = CudaVec3::from_vec(vec![Vec3::new(1.0, 1.0, 1.0); chunk_size], stream, operations)?;
 
-    let center_vec = vec![Vec3::new(0.0, 0.0, -1.0), Vec3::new(0.0, -100.5, -1.0)];
-    let radius_vec = vec![0.5_f32, 100.0_f32];
-    // let center_vec = vec![Vec3::new(0.0, -1.0, -1.0)];
-    // let radius_vec = vec![0.5_f32];
+    let mut dirs = CudaVec3::from_slice(&dirs[range.0..range.1], stream, operations)?;
+    let mut origs = CudaVec3::from_slice(&origs[range.0..range.1], stream, operations)?;
 
-    // move to device
-    let mut point_fives = Operations::slice_to_device(&point_fives[..], stream)?;
-    let mut one_vecs = Operations::slice_to_device(&one_vecs[..], stream)?;
-
-    let mut dirs = Operations::slice_to_device(&dirs[range.0..range.1], stream)?;
-    let mut origs = Operations::slice_to_device(&origs[range.0..range.1], stream)?;
-
+    let center_vec = [Vec3::new(0.0, 0.0, -1.0), Vec3::new(0.0, -100.5, -1.0)];
+    let radius_vec = [0.5_f32, 100.0_f32];
     let mut centers_vec = Vec::new();
     let mut radiuses_vec = Vec::new();
     for i in 0..center_vec.len() {
-        centers_vec.push(Operations::slice_to_device(&vec![center_vec[i].clone(); chunk_size][..], stream)?);
-        radiuses_vec.push(Operations::slice_to_device(&vec![radius_vec[i]; chunk_size][..], stream)?);
+        centers_vec.push(CudaVec3::from_vec(vec![center_vec[i].clone(); chunk_size], stream, operations)?);
+        radiuses_vec.push(CudaFloat::from_vec(vec![radius_vec[i]; chunk_size], stream, operations)?);
     }
 
     // background_cols
-    let mut cols = operations.background_color(&mut dirs, chunk_size, stream)?;
+    let mut cols = operations.background_color(&mut dirs, stream, operations)?;
 
     // sphere collision
-    let mut t_min = Operations::slice_to_device(&vec![0.0_f32; chunk_size][..], stream)?;
-    let mut t_max = Operations::slice_to_device(&vec![1e10_f32; chunk_size][..], stream)?;
-    let mut hit_anything = Operations::slice_to_device(&vec![0.0_f32; chunk_size][..], stream)?;
-    let mut normal = Operations::slice_to_device(&vec![Vec3::zero(); chunk_size], stream)?;
+    let mut t_min = CudaFloat::from_vec(vec![0.0_f32; chunk_size], stream, operations)?;
+    let mut t_max = CudaFloat::from_vec(vec![1e10_f32; chunk_size], stream, operations)?;
+    let mut hit_anything = CudaBool::new_false(chunk_size, stream, operations)?;
+    let mut normal_col = CudaVec3::from_vec(vec![Vec3::zero(); chunk_size], stream, operations)?;
     for i in 0..centers_vec.len() {
         let centers = &mut centers_vec[i];
         let radiuses = &mut radiuses_vec[i];
-        let mut collision_info = operations.get_sphere_collision_info(&mut origs, &mut dirs, centers, radiuses, &mut t_min, &mut t_max, chunk_size, stream)?;
+        let mut collision_info = operations.get_sphere_collision_info(&mut origs, &mut dirs, centers, radiuses, &mut t_min, &mut t_max, chunk_size, stream, operations)?;
 
-        hit_anything = operations.or(&mut hit_anything, &mut collision_info.0, chunk_size, stream)?;
-        t_max = operations.select(&mut collision_info.0, &mut collision_info.1, &mut t_max, chunk_size, stream)?;
+        hit_anything = CudaBool::or(&mut hit_anything, &mut collision_info.0)?;
+        t_max = CudaFloat::select(&mut collision_info.0, &mut collision_info.1, &mut t_max)?;
 
-        let mut collision_points = operations.ray_at(&mut origs, &mut dirs, &mut collision_info.1, chunk_size, stream)?;
-        let mut new_normal = operations.vec3_sub(&mut collision_points, centers, chunk_size, stream)?;   
-        new_normal = operations.vec3_add(&mut new_normal, &mut one_vecs, chunk_size, stream)?;
-        new_normal = operations.vec3_mul_scalar(&mut new_normal, &mut point_fives, chunk_size, stream)?;
-        new_normal = operations.get_outward_normal(&mut new_normal, &mut dirs, chunk_size, stream)?;
+        let mut collision_point = operations.ray_at(&mut origs, &mut dirs, &mut collision_info.1)?;
+        let mut new_normal = operations.get_outward_normal(&mut collision_point.sub(centers)?, &mut dirs)?;
 
-        normal = operations.vec3_select(&mut collision_info.0, &mut new_normal, &mut normal, chunk_size, stream)?;
+        let mut new_normal_col = new_normal.add(&mut one_vecs)?.mul_scalar(&mut point_fives)?;
+        normal_col = CudaVec3::select(&mut collision_info.0, &mut new_normal_col, &mut normal_col)?;
     }
 
-    cols = operations.vec3_select(&mut hit_anything, &mut normal, &mut cols, chunk_size, stream)?;
+    // println!("{:?}", hit_anything.to_vec());
+
+    cols = CudaVec3::select(&mut hit_anything, &mut normal_col, &mut cols)?;
     Ok(cols)
 }
 
