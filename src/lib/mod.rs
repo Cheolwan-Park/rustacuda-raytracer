@@ -6,8 +6,11 @@ mod ray;
 pub use ray::Ray;
 
 mod operations;
-pub use operations::OperationsData;
 pub use operations::Operations;
 
 mod camera;
 pub use camera::Camera;
+
+pub mod operations_extension;
+
+pub mod cuda_types;
